@@ -70,6 +70,24 @@ final class SpaceEvaluator
     }
 
     /**
+     * The optimistic Reachable Area from an arbitrary Cell — the count of free
+     * Cells reachable by single-source BFS, with Obstacle Cells as obstacles.
+     *
+     * Used by {@see AggressionEvaluator} to measure an Opponent's space; the
+     * origin Cell itself always counts, even when it is an Obstacle Cell (an
+     * Opponent floods from its own — solid — Head).
+     */
+    public function reachableAreaFrom(GameState $state, Coord $origin): int
+    {
+        $width = $state->board->width;
+        $height = $state->board->height;
+        $obstacles = (new ObstacleMap($state->board))->indices();
+
+        [$area] = $this->flood($origin->y * $width + $origin->x, $width, $height, $obstacles, []);
+        return $area;
+    }
+
+    /**
      * Single-source BFS counting reachable free Cells from `$startIdx`. The
      * start Cell always counts, regardless of whether it is an obstacle.
      *

@@ -79,11 +79,17 @@ into a pocket.
 
 #### Normal-Health Mode (`health > 20`)
 
-1. If there is at least one Winnable food, target the **Most-Contended
-   Winnable Food** — the Winnable food with the smallest `WinningMargin`.
-2. Tie-break: among foods with the smallest margin, pick the one with the
-   smallest Center Distance.
-3. If no Winnable food exists, target the **Center**.
+1. **Aggression.** If a **Weaker Opponent** — an Opponent strictly shorter
+   than us — has its Head within 4 Moves (Manhattan) of our Head, evaluate our
+   Trap-Safe Moves: for each, simulate the Move and measure the nearest such
+   Opponent's **Reachable Area** from its Head. If some Move shrinks that
+   Reachable Area below its current value, target the destination of the Move
+   that shrinks it most. See [ADR 010](../decisions/010-aggression.md).
+2. Otherwise, if there is at least one Winnable food, target the
+   **Most-Contended Winnable Food** — the Winnable food with the smallest
+   `WinningMargin`. Tie-break: among foods with the smallest margin, the one
+   with the smallest Center Distance.
+3. If neither applies, target the **Center**.
 
 #### Low-Health Mode (`health ≤ 20`)
 

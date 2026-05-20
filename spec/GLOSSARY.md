@@ -56,6 +56,12 @@ be added here before the PR merges.
 - **Opportunistic Food** — a Winnable Food at most two Moves from our Head
   whose Cell is Trap-Safe. When one exists it is targeted immediately, ahead
   of the health-mode target logic.
+- **Weaker Opponent** — an Opponent strictly shorter than us. A head-to-head
+  against a Weaker Opponent is one we win, which makes aggressive blocking of
+  it safe.
+- **Aggression** — in Normal-Health Mode, targeting the Trap-Safe Move that
+  most shrinks a nearby Weaker Opponent's Reachable Area, to cut off its
+  space. Checked ahead of food.
 - **Normal-Health Mode** — Active when `health > 20`. Targeting prioritizes
   food denial.
 - **Low-Health Mode** — Active when `health ≤ 20`. Targeting prioritizes

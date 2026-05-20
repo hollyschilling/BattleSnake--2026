@@ -13,6 +13,7 @@ use App\Http\Controllers\IndexController;
 use App\Http\Controllers\MoveController;
 use App\Http\GameStateParser;
 use App\Http\SnakeInfo;
+use App\Strategy\AggressionEvaluator;
 use App\Strategy\FloodFill;
 use App\Strategy\FloodFillMoveSelector;
 use App\Strategy\FoodClassifier;
@@ -33,11 +34,15 @@ $info = new SnakeInfo(
 
 $parser = new GameStateParser();
 $spaceEvaluator = new SpaceEvaluator();
+$survivalFilter = new SurvivalFilter();
 $selector = new FloodFillMoveSelector(
     floodFill: new FloodFill(),
     foodClassifier: new FoodClassifier(),
-    targetSelector: new TargetSelector(spaceEvaluator: $spaceEvaluator),
-    survivalFilter: new SurvivalFilter(),
+    targetSelector: new TargetSelector(
+        spaceEvaluator: $spaceEvaluator,
+        aggressionEvaluator: new AggressionEvaluator($survivalFilter, $spaceEvaluator),
+    ),
+    survivalFilter: $survivalFilter,
     spaceEvaluator: $spaceEvaluator,
 );
 

@@ -94,6 +94,18 @@ final class SpaceEvaluatorTest extends TestCase
         self::assertFalse($assessment->isSpaceSafe);
     }
 
+    public function testReachableAreaFromCountsFreeCells(): void
+    {
+        // Solo snake; its tail vacates, leaving 2 obstacle cells on an 11x11
+        // board, so 119 free cells are reachable from any open cell.
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 90, [[5, 5], [5, 4], [5, 3]])
+            ->build();
+
+        self::assertSame(119, (new SpaceEvaluator())->reachableAreaFrom($state, new Coord(0, 0)));
+    }
+
     public function testOpponentHeadAtChokepointMakesAreaNotTrapSafe(): void
     {
         // Pocket {(0,0),(0,1),(0,2)} with a single exit at (0,3). The opponent

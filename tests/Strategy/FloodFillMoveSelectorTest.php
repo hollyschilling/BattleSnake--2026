@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Strategy;
 
 use App\Domain\Move;
+use App\Strategy\AggressionEvaluator;
 use App\Strategy\FloodFill;
 use App\Strategy\FloodFillMoveSelector;
 use App\Strategy\FoodClassifier;
@@ -20,7 +21,10 @@ final class FloodFillMoveSelectorTest extends TestCase
         return new FloodFillMoveSelector(
             floodFill: new FloodFill(),
             foodClassifier: new FoodClassifier(),
-            targetSelector: new TargetSelector(new SpaceEvaluator()),
+            targetSelector: new TargetSelector(
+                new SpaceEvaluator(),
+                new AggressionEvaluator(new SurvivalFilter(), new SpaceEvaluator()),
+            ),
             survivalFilter: new SurvivalFilter(),
             spaceEvaluator: new SpaceEvaluator(),
         );
@@ -176,6 +180,20 @@ final class FloodFillMoveSelectorTest extends TestCase
             ->build();
 
         self::assertSame(Move::Up, $this->selector()->select($state));
+    }
+
+    public function testCutsOffAWeakerOpponent(): void
+    {
+        // Weaker opponent (length 3) runs up column 0 against the wall; we
+        // (length 5) are alongside and ahead. We move Left to cap their lane.
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 90, [[1, 6], [1, 5], [1, 4], [1, 3], [1, 2]])
+            ->snake('opp', 90, [[0, 4], [0, 3], [0, 2]])
+            ->you('us')
+            ->build();
+
+        self::assertSame(Move::Left, $this->selector()->select($state));
     }
 
     public function testEscapesACoilViaTailChase(): void

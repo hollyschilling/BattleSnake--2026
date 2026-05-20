@@ -6,9 +6,11 @@ namespace App\Tests\Strategy;
 
 use App\Domain\Coord;
 use App\Domain\GameState;
+use App\Strategy\AggressionEvaluator;
 use App\Strategy\FloodFill;
 use App\Strategy\FoodClassifier;
 use App\Strategy\SpaceEvaluator;
+use App\Strategy\SurvivalFilter;
 use App\Strategy\TargetSelector;
 use PHPUnit\Framework\TestCase;
 
@@ -18,7 +20,11 @@ final class TargetSelectorTest extends TestCase
     {
         $result = (new FloodFill())->run($state);
         $foods = (new FoodClassifier())->classify($state, $result);
-        return (new TargetSelector(new SpaceEvaluator()))->selectTarget($state, $result, $foods);
+        $targetSelector = new TargetSelector(
+            new SpaceEvaluator(),
+            new AggressionEvaluator(new SurvivalFilter(), new SpaceEvaluator()),
+        );
+        return $targetSelector->selectTarget($state, $result, $foods);
     }
 
     public function testTargetsOpportunisticFoodWithinTwoSpaces(): void
@@ -88,6 +94,21 @@ final class TargetSelectorTest extends TestCase
         // (2,5) is one Move away — taken whether by the opportunistic rule or
         // the low-health "closest winnable" rule.
         self::assertTrue($this->selectTarget($state)->equals(new Coord(2, 5)));
+    }
+
+    public function testAggressionTargetsAWeakerOpponentOverFood(): void
+    {
+        // A weaker opponent we can cap is nearby; food sits far away. Aggression
+        // outranks contested food, so the target is the capping cell (0,6).
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 90, [[1, 6], [1, 5], [1, 4], [1, 3], [1, 2]])
+            ->snake('opp', 90, [[0, 4], [0, 3], [0, 2]])
+            ->food([[8, 8]])
+            ->you('us')
+            ->build();
+
+        self::assertTrue($this->selectTarget($state)->equals(new Coord(0, 6)));
     }
 
     public function testLowHealthFallsBackToReachableMinTerritoryWhenNoWinnable(): void

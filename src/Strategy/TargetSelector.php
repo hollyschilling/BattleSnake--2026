@@ -15,8 +15,10 @@ final class TargetSelector
     private const int LOW_HEALTH_THRESHOLD = 20;
     private const int OPPORTUNISTIC_DISTANCE = 2;
 
-    public function __construct(private readonly SpaceEvaluator $spaceEvaluator)
-    {
+    public function __construct(
+        private readonly SpaceEvaluator $spaceEvaluator,
+        private readonly AggressionEvaluator $aggressionEvaluator,
+    ) {
     }
 
     /**
@@ -31,11 +33,17 @@ final class TargetSelector
             return $opportunistic;
         }
 
-        if ($state->you->health > self::LOW_HEALTH_THRESHOLD) {
-            return $this->selectNormalHealth($foods, $center) ?? $center;
+        if ($state->you->health <= self::LOW_HEALTH_THRESHOLD) {
+            return $this->selectLowHealth($result, $foods, $center) ?? $center;
         }
 
-        return $this->selectLowHealth($result, $foods, $center) ?? $center;
+        // Normal health: aggression outranks contested-food chasing.
+        $aggressiveMove = $this->aggressionEvaluator->aggressiveMove($state);
+        if ($aggressiveMove !== null) {
+            return $state->you->head()->translate($aggressiveMove);
+        }
+
+        return $this->selectNormalHealth($foods, $center) ?? $center;
     }
 
     /**
