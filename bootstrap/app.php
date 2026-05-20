@@ -32,12 +32,13 @@ $info = new SnakeInfo(
 );
 
 $parser = new GameStateParser();
+$spaceEvaluator = new SpaceEvaluator();
 $selector = new FloodFillMoveSelector(
     floodFill: new FloodFill(),
     foodClassifier: new FoodClassifier(),
-    targetSelector: new TargetSelector(),
+    targetSelector: new TargetSelector(spaceEvaluator: $spaceEvaluator),
     survivalFilter: new SurvivalFilter(),
-    spaceEvaluator: new SpaceEvaluator(),
+    spaceEvaluator: $spaceEvaluator,
 );
 
 $app = AppFactory::create();

@@ -20,7 +20,7 @@ final class FloodFillMoveSelectorTest extends TestCase
         return new FloodFillMoveSelector(
             floodFill: new FloodFill(),
             foodClassifier: new FoodClassifier(),
-            targetSelector: new TargetSelector(),
+            targetSelector: new TargetSelector(new SpaceEvaluator()),
             survivalFilter: new SurvivalFilter(),
             spaceEvaluator: new SpaceEvaluator(),
         );
@@ -110,6 +110,22 @@ final class FloodFillMoveSelectorTest extends TestCase
         $move = $this->selector()->select($state);
 
         self::assertSame(Move::Right, $move);
+    }
+
+    public function testGrabsOpportunisticFoodOverDistantContestedFood(): void
+    {
+        // Food (5,3) is 2 Moves below us — opportunistic. Food (5,9) is more
+        // contended but 4 Moves away. We must step toward the close food (Down),
+        // not the contested one (Up).
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 100, [[5, 5]])
+            ->snake('opp', 100, [[9, 8], [9, 7]])
+            ->food([[5, 3], [5, 9]])
+            ->you('us')
+            ->build();
+
+        self::assertSame(Move::Down, $this->selector()->select($state));
     }
 
     public function testAvoidsSpaceAnOpponentCanSealOff(): void

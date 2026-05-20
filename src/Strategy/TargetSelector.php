@@ -13,6 +13,11 @@ use App\Domain\GameState;
 final class TargetSelector
 {
     private const int LOW_HEALTH_THRESHOLD = 20;
+    private const int OPPORTUNISTIC_DISTANCE = 2;
+
+    public function __construct(private readonly SpaceEvaluator $spaceEvaluator)
+    {
+    }
 
     /**
      * @param list<ClassifiedFood> $foods
@@ -21,11 +26,45 @@ final class TargetSelector
     {
         $center = $state->board->center();
 
+        $opportunistic = $this->selectOpportunistic($state, $foods, $center);
+        if ($opportunistic !== null) {
+            return $opportunistic;
+        }
+
         if ($state->you->health > self::LOW_HEALTH_THRESHOLD) {
             return $this->selectNormalHealth($foods, $center) ?? $center;
         }
 
         return $this->selectLowHealth($result, $foods, $center) ?? $center;
+    }
+
+    /**
+     * A Winnable Food within two Moves whose Cell is Trap-Safe — nearly free
+     * to capture, so taken ahead of the health-mode logic.
+     *
+     * @param list<ClassifiedFood> $foods
+     */
+    private function selectOpportunistic(GameState $state, array $foods, Coord $center): ?Coord
+    {
+        $candidates = array_values(array_filter(
+            $foods,
+            fn (ClassifiedFood $f): bool => $f->isWinnable
+                && $f->usDistance <= self::OPPORTUNISTIC_DISTANCE
+                && $this->spaceEvaluator->assess($state, $f->coord)->isTrapSafe,
+        ));
+        if ($candidates === []) {
+            return null;
+        }
+
+        usort($candidates, static function (ClassifiedFood $a, ClassifiedFood $b) use ($center): int {
+            $cmp = $a->usDistance <=> $b->usDistance;
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+            return $a->coord->manhattanDistanceTo($center) <=> $b->coord->manhattanDistanceTo($center);
+        });
+
+        return $candidates[0]->coord;
     }
 
     /**

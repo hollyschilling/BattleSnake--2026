@@ -5,55 +5,78 @@ declare(strict_types=1);
 namespace App\Tests\Strategy;
 
 use App\Domain\Coord;
+use App\Domain\GameState;
 use App\Strategy\FloodFill;
 use App\Strategy\FoodClassifier;
+use App\Strategy\SpaceEvaluator;
 use App\Strategy\TargetSelector;
 use PHPUnit\Framework\TestCase;
 
 final class TargetSelectorTest extends TestCase
 {
-    public function testNormalHealthPicksMostContendedWinnableFood(): void
+    private function selectTarget(GameState $state): Coord
     {
-        // us at (1,5), opp at (10,5). Foods:
-        //  - (2,5): us d=1, opp d=8, margin 7 (uncontested)
-        //  - (5,5): us d=4, opp d=5, margin 1 (contested, winnable)
-        // Should pick the contested one.
+        $result = (new FloodFill())->run($state);
+        $foods = (new FoodClassifier())->classify($state, $result);
+        return (new TargetSelector(new SpaceEvaluator()))->selectTarget($state, $result, $foods);
+    }
+
+    public function testTargetsOpportunisticFoodWithinTwoSpaces(): void
+    {
+        // Food (5,3) is 2 Moves away, winnable and trap-safe — opportunistic.
+        // Food (5,9) is more contended (margin 1) but 4 Moves away. The
+        // opportunistic rule must win over the most-contended heuristic.
         $state = (new StateBuilder())
             ->size(11, 11)
-            ->snake('us', 100, [[1, 5]])
-            ->snake('opp', 100, [[10, 5]])
-            ->food([[2, 5], [5, 5]])
+            ->snake('us', 100, [[5, 5]])
+            ->snake('opp', 100, [[9, 8], [9, 7]])
+            ->food([[5, 3], [5, 9]])
             ->you('us')
             ->build();
 
-        $result = (new FloodFill())->run($state);
-        $foods = (new FoodClassifier())->classify($state, $result);
-        $target = (new TargetSelector())->selectTarget($state, $result, $foods);
-
-        self::assertTrue($target->equals(new Coord(5, 5)));
+        self::assertTrue($this->selectTarget($state)->equals(new Coord(5, 3)));
     }
 
-    public function testNormalHealthFallsBackToCenterWhenNoFood(): void
+    public function testPrefersNearestOpportunisticFood(): void
+    {
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 100, [[5, 5]])
+            ->food([[5, 6], [5, 7]]) // distance 1 and 2
+            ->build();
+
+        self::assertTrue($this->selectTarget($state)->equals(new Coord(5, 6)));
+    }
+
+    public function testNormalHealthPicksMostContendedWinnableFoodBeyondTwoSpaces(): void
+    {
+        // Both foods are more than 2 Moves away, so the opportunistic rule does
+        // not fire. us at (0,5), opp at (10,5):
+        //  - (3,5): us d=3, opp d=7, margin 4
+        //  - (4,5): us d=4, opp d=6, margin 2  ← most contended
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 100, [[0, 5]])
+            ->snake('opp', 100, [[10, 5]])
+            ->food([[3, 5], [4, 5]])
+            ->you('us')
+            ->build();
+
+        self::assertTrue($this->selectTarget($state)->equals(new Coord(4, 5)));
+    }
+
+    public function testFallsBackToCenterWhenNoFood(): void
     {
         $state = (new StateBuilder())
             ->size(11, 11)
             ->snake('us', 100, [[1, 1]])
             ->build();
 
-        $result = (new FloodFill())->run($state);
-        $foods = (new FoodClassifier())->classify($state, $result);
-        $target = (new TargetSelector())->selectTarget($state, $result, $foods);
-
-        self::assertTrue($target->equals(new Coord(5, 5)));
+        self::assertTrue($this->selectTarget($state)->equals(new Coord(5, 5)));
     }
 
-    public function testLowHealthPicksClosestWinnableFood(): void
+    public function testLowHealthTakesClosestWinnableFood(): void
     {
-        // Low health (≤20) overrides "most contended" with "closest".
-        // us at (1,5), opp at (10,5):
-        //  - (2,5): us d=1, opp d=8, margin 7 (closest)
-        //  - (5,5): us d=4, opp d=5, margin 1 (more contested)
-        // Low-health should pick (2,5).
         $state = (new StateBuilder())
             ->size(11, 11)
             ->snake('us', 15, [[1, 5]])
@@ -62,29 +85,23 @@ final class TargetSelectorTest extends TestCase
             ->you('us')
             ->build();
 
-        $result = (new FloodFill())->run($state);
-        $foods = (new FoodClassifier())->classify($state, $result);
-        $target = (new TargetSelector())->selectTarget($state, $result, $foods);
-
-        self::assertTrue($target->equals(new Coord(2, 5)));
+        // (2,5) is one Move away — taken whether by the opportunistic rule or
+        // the low-health "closest winnable" rule.
+        self::assertTrue($this->selectTarget($state)->equals(new Coord(2, 5)));
     }
 
     public function testLowHealthFallsBackToReachableMinTerritoryWhenNoWinnable(): void
     {
-        // Low-health, no winnable food (opp gets there first), but it's reachable.
-        // We expect a Reachable food to be chosen as the target.
+        // Low health, the food is reachable but the opponent reaches it first
+        // (not winnable) and it is more than 2 Moves away (not opportunistic).
         $state = (new StateBuilder())
             ->size(11, 11)
             ->snake('us', 10, [[1, 5]])
             ->snake('opp', 100, [[6, 5], [6, 4], [6, 3]])
-            ->food([[5, 5]])  // us d=4 (<10, reachable); opp d=1, opp wins.
+            ->food([[5, 5]])
             ->you('us')
             ->build();
 
-        $result = (new FloodFill())->run($state);
-        $foods = (new FoodClassifier())->classify($state, $result);
-        $target = (new TargetSelector())->selectTarget($state, $result, $foods);
-
-        self::assertTrue($target->equals(new Coord(5, 5)));
+        self::assertTrue($this->selectTarget($state)->equals(new Coord(5, 5)));
     }
 }

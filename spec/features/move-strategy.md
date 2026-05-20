@@ -60,7 +60,21 @@ For each Food Cell `f`:
 
 ### Phase 3 — Target Selection
 
-Select a target Cell. The mode depends on `you.health`.
+Select a target Cell.
+
+#### Opportunistic Food (checked first, all health modes)
+
+A Food is **Opportunistic** iff it is Winnable, lies at most two Moves from
+our Head (`d_us(f) ≤ 2`), and its Cell is Trap-Safe — the Phase 6 Space-Safety
+test applied to the Food Cell itself.
+
+If any Opportunistic Food exists, target the nearest one — smallest `d_us`,
+tie-broken by Center Distance — and skip the health-mode logic below.
+
+A Food two Moves away is nearly free: capturing it costs almost no tempo, so
+it is taken immediately rather than passed over for a more contested but
+distant Food. The Trap-Safe condition keeps this fast path from steering us
+into a pocket.
 
 #### Normal-Health Mode (`health > 20`)
 

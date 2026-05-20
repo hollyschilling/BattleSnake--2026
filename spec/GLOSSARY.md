@@ -46,6 +46,9 @@ be added here before the PR merges.
   `min(d_opp(f)) − d_us(f)`. Always ≥ 0. Smaller margins are more contested.
 - **Most-Contended Winnable Food** — The Winnable Food with the smallest
   Winning Margin. The default target in Normal-Health Mode.
+- **Opportunistic Food** — a Winnable Food at most two Moves from our Head
+  whose Cell is Trap-Safe. When one exists it is targeted immediately, ahead
+  of the health-mode target logic.
 - **Normal-Health Mode** — Active when `health > 20`. Targeting prioritizes
   food denial.
 - **Low-Health Mode** — Active when `health ≤ 20`. Targeting prioritizes
