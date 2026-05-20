@@ -107,32 +107,49 @@ regardless — emit `up` (the engine requires a valid response).
 ### Phase 6 — Space-Safety Arbitration
 
 A Move can be immediately-survivable yet still fatal a few Turns later if it
-enters a region too small to hold the Snake. This phase rejects such Moves.
+enters a region too small to hold the Snake — either too small on its own, or
+small enough that an Opponent can seal it shut.
 
-For each immediately-survivable Move, measured from its destination Cell:
+For each immediately-survivable Move, measured from its destination Cell by
+single-source breadth-first search:
 
-- **Reachable Area** — the count of free Cells reachable by a single-source
-  breadth-first search, with all Snake bodies as obstacles (v1: including
-  Tails, consistent with Phase 1). The destination Cell counts toward the
-  Area.
+- **Reachable Area** — the count of free Cells reachable, with all Snake
+  bodies as obstacles (v1: including Tails, consistent with Phase 1). The
+  destination Cell counts toward the Area.
+- **Guaranteed Area** — the same count, but additionally treating every free
+  Cell adjacent to an Opponent's Head as an obstacle. Those are the Cells an
+  Opponent could move into next Turn; the Guaranteed Area is the space we
+  retain even if an Opponent moves to seal us in.
 - **Food In Area** — the number of Food Cells within the Reachable Area.
 - **Required Space** = `you.length + Food In Area + 1`. Eating each Food in
   the region grows us by one segment; the `+1` is a buffer against a Food
   spawning in the region while we are inside it.
 - The Move is **Space-Safe** iff `Reachable Area ≥ Required Space`.
+- The Move is **Trap-Safe** iff `Guaranteed Area ≥ Required Space`. Trap-Safe
+  implies Space-Safe, since Guaranteed Area ≤ Reachable Area.
+
+Each immediately-survivable Move falls into one of three tiers:
+
+1. **Trap-Safe** — survivable even if an Opponent moves to trap us.
+2. **Space-Safe only** — survivable unless an Opponent moves to trap us.
+3. **Neither** — the region is too small regardless of Opponents.
 
 Select the final Move:
 
-1. If the Phase 4 candidate Move is immediately-survivable and Space-Safe,
+1. If the Phase 4 candidate Move is immediately-survivable and Trap-Safe,
    emit it.
-2. Otherwise, emit the Move with the largest Reachable Area — chosen from the
-   Space-Safe survivable Moves if any exist, or from all survivable Moves if
-   none are Space-Safe. Tie-break by the smallest Center Distance of the
-   destination Cell.
+2. Otherwise, take the highest non-empty tier and emit its Move with the
+   largest Guaranteed Area. Tie-break by largest Reachable Area, then by the
+   smallest Center Distance of the destination Cell.
 
 Step 2 deliberately abandons the Phase 3 target for one Turn when the target
-path would trap us. Because the algorithm re-runs from scratch every Turn,
-the target is re-pursued from the safer position on the next Turn.
+path would trap us, or could be trapped by an Opponent. Because the algorithm
+re-runs from scratch every Turn, the target is re-pursued from the safer
+position on the next Turn — including once an Opponent moves off a chokepoint.
+
+Opponent prediction here is deliberately minimal: only one-ply Head moves, and
+only as obstacles for the Guaranteed Area. The strategy still does not model
+Opponent paths or intent.
 
 ## Determinism
 
@@ -150,9 +167,11 @@ These are intentional simplifications to be revisited:
 - **No head-adjacency danger in Flood Fill.** Opponent Heads are sources of
   their own BFS but Cells adjacent to longer Opponent Heads are not
   pre-emptively avoided in the distance computation. Survival is enforced
-  only in Phase 5.
+  only in Phase 5; Opponent Head moves are accounted for in Phase 6.
 - **Hard health threshold.** `health ≤ 20` is a binary cliff. A gradient
   blend between modes would play better.
-- **One-ply.** No multi-turn lookahead beyond the Space-Safety check.
+- **One-ply.** No multi-turn lookahead beyond the Space-Safety check, and
+  Opponent prediction is limited to a single Head move (Phase 6 Guaranteed
+  Area). Opponent paths and intent are not modelled.
 
 Each of these is a candidate for a future ADR if play quality demands it.

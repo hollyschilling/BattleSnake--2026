@@ -15,7 +15,8 @@ use App\Domain\Move;
  *  Phase 3 — {@see TargetSelector}
  *  Phase 4 — path extraction (inline below)
  *  Phase 5 — {@see SurvivalFilter}
- *  Phase 6 — space-safety arbitration ({@see SpaceEvaluator})
+ *  Phase 6 — space-safety arbitration ({@see SpaceEvaluator}), tiered by
+ *            Trap-Safe > Space-Safe-only > neither
  */
 final class FloodFillMoveSelector implements MoveSelector
 {
@@ -47,6 +48,9 @@ final class FloodFillMoveSelector implements MoveSelector
     /**
      * Phase 6 — pick the final Move using {@see SpaceEvaluator}.
      *
+     * Tiers the survivable Moves by Trap-Safe > Space-Safe-only > neither,
+     * and picks the largest-Guaranteed-Area Move from the highest tier.
+     *
      * @param list<Move> $survivable
      */
     private function arbitrateBySpace(GameState $state, array $survivable, ?Move $candidate): Move
@@ -59,25 +63,40 @@ final class FloodFillMoveSelector implements MoveSelector
             $assessment[$move->value] = $this->spaceEvaluator->assess($state, $head->translate($move));
         }
 
-        // 1. Take the target-path candidate if it is survivable and Space-Safe.
+        // 1. Take the target-path candidate if it is survivable and Trap-Safe.
         if ($candidate !== null
             && in_array($candidate, $survivable, true)
-            && $assessment[$candidate->value]->isSafe
+            && $assessment[$candidate->value]->isTrapSafe
         ) {
             return $candidate;
         }
 
-        // 2. Otherwise pick the largest-area Move, preferring Space-Safe ones.
-        $safe = array_values(array_filter(
+        // 2. Otherwise pick from the highest non-empty tier.
+        $trapSafe = array_values(array_filter(
             $survivable,
-            static fn (Move $m): bool => $assessment[$m->value]->isSafe,
+            static fn (Move $m): bool => $assessment[$m->value]->isTrapSafe,
         ));
-        $pool = $safe !== [] ? $safe : $survivable;
+        $spaceSafeOnly = array_values(array_filter(
+            $survivable,
+            static fn (Move $m): bool => $assessment[$m->value]->isSpaceSafe
+                && !$assessment[$m->value]->isTrapSafe,
+        ));
+        $pool = match (true) {
+            $trapSafe !== []      => $trapSafe,
+            $spaceSafeOnly !== [] => $spaceSafeOnly,
+            default               => $survivable,
+        };
 
+        // Largest Guaranteed Area, then largest Reachable Area, then nearest Center.
         $best = $pool[0];
         for ($i = 1, $n = count($pool); $i < $n; $i++) {
             $move = $pool[$i];
-            $cmp = $assessment[$move->value]->reachableArea <=> $assessment[$best->value]->reachableArea;
+            $a = $assessment[$move->value];
+            $b = $assessment[$best->value];
+            $cmp = $a->guaranteedArea <=> $b->guaranteedArea;
+            if ($cmp === 0) {
+                $cmp = $a->reachableArea <=> $b->reachableArea;
+            }
             if ($cmp > 0) {
                 $best = $move;
             } elseif ($cmp === 0) {

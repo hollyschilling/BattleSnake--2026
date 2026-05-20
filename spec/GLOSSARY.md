@@ -62,3 +62,9 @@ be added here before the PR merges.
 - **Space-Safe** — a Move whose destination Cell has a Reachable Area at
   least equal to its Required Space — i.e., a region large enough to hold
   the Snake even after eating all Food in it (plus a one-segment buffer).
+- **Guaranteed Area** — the Reachable Area of a Cell recomputed with every
+  free Cell adjacent to an Opponent's Head also treated as an obstacle. It is
+  the space the Snake retains even if an Opponent moves to seal it in.
+- **Trap-Safe** — a Move whose destination Cell has a Guaranteed Area at
+  least equal to its Required Space — i.e., Space-Safe even against an
+  adversarial one-ply Opponent move.

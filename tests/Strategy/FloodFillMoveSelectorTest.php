@@ -112,6 +112,24 @@ final class FloodFillMoveSelectorTest extends TestCase
         self::assertSame(Move::Right, $move);
     }
 
+    public function testAvoidsSpaceAnOpponentCanSealOff(): void
+    {
+        // Food sits in a 3-cell pocket {(0,0),(0,1),(0,2)} whose only exit is
+        // (0,3). The opponent body walls the pocket; the opponent head (2,3) is
+        // one step from (1,3), the cell linking the pocket to the open board.
+        // The greedy target path is Down — into the pocket — but the opponent
+        // can seal (1,3) behind us. The pessimistic check must steer us Right.
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 100, [[0, 4], [0, 5], [0, 6], [0, 7]])
+            ->snake('opp', 100, [[2, 3], [2, 2], [2, 1], [2, 0], [1, 0], [1, 1], [1, 2]])
+            ->food([[0, 0]])
+            ->you('us')
+            ->build();
+
+        self::assertSame(Move::Right, $this->selector()->select($state));
+    }
+
     public function testPicksLargestAreaWhenEveryMoveIsUnsafe(): void
     {
         // 5x5 board. The length-10 body walls it into a 10-cell region (above,
