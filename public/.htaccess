@@ -1,0 +1,7 @@
+# Front-controller routing: send every request that is not a real file
+# to public/index.php so Slim can dispatch it.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
