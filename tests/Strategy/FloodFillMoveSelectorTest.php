@@ -83,11 +83,12 @@ final class FloodFillMoveSelectorTest extends TestCase
 
     public function testAvoidsCollisionWithOpponentBody(): void
     {
-        // Head at (5,5). Opponent body blocks (6,5), (4,5) and (5,4); only Up is free.
+        // Head at (5,5). Opponent mid-body blocks (6,5), (5,4) and (4,5); only
+        // Up is free. The opponent's tail (4,6) is well clear of our head.
         $state = (new StateBuilder())
             ->size(11, 11)
             ->snake('us', 100, [[5, 5]])
-            ->snake('opp', 100, [[6, 6], [6, 5], [6, 4], [5, 4], [4, 4], [4, 5]])
+            ->snake('opp', 100, [[6, 7], [6, 6], [6, 5], [6, 4], [5, 4], [4, 4], [4, 5], [4, 6]])
             ->you('us')
             ->build();
 
@@ -131,14 +132,15 @@ final class FloodFillMoveSelectorTest extends TestCase
     public function testAvoidsSpaceAnOpponentCanSealOff(): void
     {
         // Food sits in a 3-cell pocket {(0,0),(0,1),(0,2)} whose only exit is
-        // (0,3). The opponent body walls the pocket; the opponent head (2,3) is
-        // one step from (1,3), the cell linking the pocket to the open board.
-        // The greedy target path is Down — into the pocket — but the opponent
-        // can seal (1,3) behind us. The pessimistic check must steer us Right.
+        // (0,3). The opponent just ate (doubled tail at (1,2)) so its body wall
+        // stays solid. Its head (2,3) is one step from (1,3), the cell linking
+        // the pocket to the open board. The greedy target path is Down — into
+        // the pocket — but the opponent can seal (1,3) behind us. The
+        // pessimistic check must steer us Right.
         $state = (new StateBuilder())
             ->size(11, 11)
             ->snake('us', 100, [[0, 4], [0, 5], [0, 6], [0, 7]])
-            ->snake('opp', 100, [[2, 3], [2, 2], [2, 1], [2, 0], [1, 0], [1, 1], [1, 2]])
+            ->snake('opp', 100, [[2, 3], [2, 2], [2, 1], [2, 0], [1, 0], [1, 1], [1, 2], [1, 2]])
             ->food([[0, 0]])
             ->you('us')
             ->build();
@@ -148,15 +150,15 @@ final class FloodFillMoveSelectorTest extends TestCase
 
     public function testFallsBackToOpenMoveWhenNoSurvivableMove(): void
     {
-        // us length 2 at (0,0): Up is our own body, Down/Left are OOB. Right
-        // (1,0) is rejected from the survivable set only because a strictly
-        // longer opponent could contest it. With no survivable Move, we must
-        // take the open Right — a possible head-to-head beats the certain
-        // self-collision a hardcoded `up` would have caused.
+        // us just ate (doubled tail at (0,1)), so Up is solid — no tail-chase.
+        // Down/Left are OOB. Right (1,0) is rejected from the survivable set
+        // only because a strictly longer opponent could contest it. With no
+        // survivable Move we take the open Right — a possible head-to-head
+        // beats the certain self-collision a hardcoded `up` would have caused.
         $state = (new StateBuilder())
             ->size(11, 11)
-            ->snake('us', 100, [[0, 0], [0, 1]])
-            ->snake('opp', 100, [[2, 0], [2, 1], [2, 2]])
+            ->snake('us', 100, [[0, 0], [0, 1], [0, 1]])
+            ->snake('opp', 100, [[2, 0], [2, 1], [2, 2], [2, 3]])
             ->you('us')
             ->build();
 
@@ -165,14 +167,28 @@ final class FloodFillMoveSelectorTest extends TestCase
 
     public function testEmitsInBoundsMoveWhenEveryMoveIsCertainDeath(): void
     {
-        // Boxed in: every Move is out of bounds or into a body. The last-resort
+        // Boxed in and just ate (doubled tail), so there is no tail-chase
+        // escape: every Move is out of bounds or into a body. The last-resort
         // emits the first in-bounds Move rather than blindly leaving the board.
         $state = (new StateBuilder())
             ->size(11, 11)
-            ->snake('us', 100, [[0, 0], [1, 0], [0, 1]])
+            ->snake('us', 100, [[0, 0], [1, 0], [0, 1], [0, 1]])
             ->build();
 
         self::assertSame(Move::Up, $this->selector()->select($state));
+    }
+
+    public function testEscapesACoilViaTailChase(): void
+    {
+        // A snake coiled in a ring. Every move but one is a wall or mid-body;
+        // the sole survivable move is onto its own vacating tail. Before
+        // tail-aware obstacles this was a guaranteed loss.
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 90, [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [2, 1], [2, 0], [1, 0]])
+            ->build();
+
+        self::assertSame(Move::Right, $this->selector()->select($state));
     }
 
     public function testPicksLargestAreaWhenEveryMoveIsUnsafe(): void

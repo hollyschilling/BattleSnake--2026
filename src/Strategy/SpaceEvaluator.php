@@ -13,7 +13,8 @@ use App\Domain\GameState;
  * Measures the enclosed space reachable from a candidate Move's destination
  * Cell with two flood fills:
  *
- * - the optimistic **Reachable Area**, with only Snake bodies as obstacles;
+ * - the optimistic **Reachable Area**, with Obstacle Cells as obstacles
+ *   ({@see ObstacleMap} — Vacating Tails are passable);
  * - the pessimistic **Guaranteed Area**, which additionally blocks every free
  *   Cell adjacent to an Opponent Head — the Cells an Opponent could move into
  *   next Turn to seal us in.
@@ -27,12 +28,7 @@ final class SpaceEvaluator
         $width = $state->board->width;
         $height = $state->board->height;
 
-        $bodies = [];
-        foreach ($state->board->snakes as $snake) {
-            foreach ($snake->body as $segment) {
-                $bodies[$segment->y * $width + $segment->x] = true;
-            }
-        }
+        $bodies = (new ObstacleMap($state->board))->indices();
 
         // Cells an Opponent Head could move into next Turn, on top of bodies.
         $contested = $bodies;

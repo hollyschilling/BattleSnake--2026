@@ -80,10 +80,11 @@ final class SurvivalFilterTest extends TestCase
 
     public function testReturnsEmptyWhenAllMovesAreFatal(): void
     {
-        // Head at (0,0), body blocks (1,0) and (0,1); other two moves are OOB.
+        // Head at (0,0); (1,0) is mid-body, (0,1) is a doubled tail (the snake
+        // just ate, so it stays solid). The other two moves are out of bounds.
         $state = (new StateBuilder())
             ->size(11, 11)
-            ->snake('us', 100, [[0, 0], [1, 0], [0, 1]])
+            ->snake('us', 100, [[0, 0], [1, 0], [0, 1], [0, 1]])
             ->build();
 
         self::assertSame([], (new SurvivalFilter())->survivableMoves($state));
@@ -91,13 +92,13 @@ final class SurvivalFilterTest extends TestCase
 
     public function testOpenMovesIncludeHeadToHeadRiskRejectedFromSurvivable(): void
     {
-        // us length 2 at (0,0); body blocks Up. Down/Left are OOB. Right (1,0)
-        // is in bounds and free, but a strictly longer opponent at (2,0) can
-        // also move there — a head-to-head risk.
+        // us length 3 at (0,0): Up (0,1) is mid-body, Down/Left are OOB. Right
+        // (1,0) is in bounds and free, but a strictly longer opponent at (2,0)
+        // can also move there — a head-to-head risk.
         $state = (new StateBuilder())
             ->size(11, 11)
-            ->snake('us', 100, [[0, 0], [0, 1]])
-            ->snake('opp', 100, [[2, 0], [2, 1], [2, 2]])
+            ->snake('us', 100, [[0, 0], [0, 1], [0, 2]])
+            ->snake('opp', 100, [[2, 0], [2, 1], [2, 2], [2, 3]])
             ->you('us')
             ->build();
 
@@ -110,10 +111,10 @@ final class SurvivalFilterTest extends TestCase
 
     public function testOpenMovesExcludeOutOfBoundsAndBody(): void
     {
-        // Head at (0,5): Up (0,6) is our own body, Left is OOB.
+        // Head at (0,5): Up (0,6) is mid-body, Left is OOB.
         $state = (new StateBuilder())
             ->size(11, 11)
-            ->snake('us', 100, [[0, 5], [0, 6]])
+            ->snake('us', 100, [[0, 5], [0, 6], [0, 7]])
             ->build();
 
         $open = (new SurvivalFilter())->openMoves($state);
@@ -122,5 +123,21 @@ final class SurvivalFilterTest extends TestCase
         self::assertContains(Move::Right, $open);
         self::assertNotContains(Move::Up, $open);
         self::assertNotContains(Move::Left, $open);
+    }
+
+    public function testTailChaseMoveIsOpenAndSurvivable(): void
+    {
+        // A snake coiled in a ring: head (0,0), tail (1,0) adjacent to it.
+        // Moving Right onto the vacating tail is the classic tail-chase —
+        // now recognised as both Open and Survivable.
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 90, [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [2, 1], [2, 0], [1, 0]])
+            ->build();
+
+        $filter = new SurvivalFilter();
+
+        self::assertSame([Move::Right], $filter->openMoves($state));
+        self::assertSame([Move::Right], $filter->survivableMoves($state));
     }
 }

@@ -15,7 +15,7 @@ use App\Domain\Snake;
  * Implements Phase 1 of /spec/features/move-strategy.md.
  *
  * Strategy:
- * 1. Collect all Snake body Cells as obstacles (v1 lazy: tails included).
+ * 1. Collect Obstacle Cells via {@see ObstacleMap} (Vacating Tails passable).
  * 2. Run a per-Snake BFS from each Head, computing `distances` and `predecessors`.
  *    When a Cell has multiple candidate predecessors at the same BFS depth,
  *    pick the predecessor with the smallest Center Distance; further ties are
@@ -55,18 +55,11 @@ final class FloodFill
     }
 
     /**
-     * @return array<int, true> set of obstacle Cell indices
+     * @return array<int, true> set of Obstacle Cell indices
      */
     private function collectObstacles(GameState $state): array
     {
-        $width = $state->board->width;
-        $obstacles = [];
-        foreach ($state->board->snakes as $snake) {
-            foreach ($snake->body as $segment) {
-                $obstacles[$segment->y * $width + $segment->x] = true;
-            }
-        }
-        return $obstacles;
+        return (new ObstacleMap($state->board))->indices();
     }
 
     /**

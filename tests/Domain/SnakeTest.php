@@ -60,4 +60,33 @@ final class SnakeTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         new Snake(id: 's1', health: $health, body: [new Coord(0, 0)]);
     }
+
+    public function testJustAteWhenLastTwoSegmentsCoincide(): void
+    {
+        $snake = new Snake(
+            id: 's1',
+            health: 100,
+            body: [new Coord(5, 5), new Coord(5, 4), new Coord(5, 4)],
+        );
+
+        self::assertTrue($snake->justAte());
+    }
+
+    public function testNotJustAteForANormalBody(): void
+    {
+        $snake = new Snake(
+            id: 's1',
+            health: 90,
+            body: [new Coord(5, 5), new Coord(5, 4), new Coord(5, 3)],
+        );
+
+        self::assertFalse($snake->justAte());
+    }
+
+    public function testNotJustAteForASingleSegmentSnake(): void
+    {
+        $snake = new Snake(id: 's1', health: 100, body: [new Coord(0, 0)]);
+
+        self::assertFalse($snake->justAte());
+    }
 }

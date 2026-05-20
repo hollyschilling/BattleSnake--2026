@@ -35,6 +35,8 @@ Derived (not stored separately):
 
 - `head` == `body[0]`
 - `tail` == `body[length-1]`
+- `justAte` — true when the last two body segments share a Coord (the Snake
+  ate last Turn; its Tail will not recede next Turn)
 
 ### Board
 

@@ -41,4 +41,14 @@ final readonly class Snake
     {
         return count($this->body);
     }
+
+    /**
+     * True when the last two body segments share a Cell — the Snake ate last
+     * Turn and its Tail will not recede next Turn.
+     */
+    public function justAte(): bool
+    {
+        $count = count($this->body);
+        return $count >= 2 && $this->body[$count - 1]->equals($this->body[$count - 2]);
+    }
 }

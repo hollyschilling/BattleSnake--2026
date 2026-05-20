@@ -14,8 +14,9 @@ use App\Domain\Move;
  * Produces two nested Move sets, neither of which selects a Move (Phase 6
  * arbitrates):
  *
- * - {@see openMoves()} — destination in bounds and not a Snake body Cell
- *   (lazy: including Tails). Not *certain* death; may still lose a head-to-head.
+ * - {@see openMoves()} — destination in bounds and not an Obstacle Cell
+ *   ({@see ObstacleMap} — Vacating Tails are passable). Not *certain* death;
+ *   may still lose a head-to-head.
  * - {@see survivableMoves()} — the Open Moves that additionally cannot be
  *   contested by a strictly longer Opponent's possible move.
  */
@@ -26,7 +27,12 @@ final class SurvivalFilter
      */
     public function survivableMoves(GameState $state): array
     {
-        return $this->movesWhere($state, fn (Coord $dest): bool => $this->isSurvivable($state, $dest));
+        $obstacles = new ObstacleMap($state->board);
+        return $this->movesWhere(
+            $state,
+            fn (Coord $dest): bool => $this->isOpen($state, $obstacles, $dest)
+                && !$this->losesHeadToHead($state, $dest),
+        );
     }
 
     /**
@@ -34,7 +40,11 @@ final class SurvivalFilter
      */
     public function openMoves(GameState $state): array
     {
-        return $this->movesWhere($state, fn (Coord $dest): bool => $this->isOpen($state, $dest));
+        $obstacles = new ObstacleMap($state->board);
+        return $this->movesWhere(
+            $state,
+            fn (Coord $dest): bool => $this->isOpen($state, $obstacles, $dest),
+        );
     }
 
     /**
@@ -54,32 +64,19 @@ final class SurvivalFilter
     }
 
     /**
-     * In bounds and not occupied by any Snake's body (v1: including Tails).
+     * In bounds and not an Obstacle Cell (a Vacating Tail is not an obstacle).
      */
-    private function isOpen(GameState $state, Coord $destination): bool
+    private function isOpen(GameState $state, ObstacleMap $obstacles, Coord $destination): bool
     {
-        if (!$state->board->contains($destination)) {
-            return false;
-        }
-        foreach ($state->board->snakes as $snake) {
-            foreach ($snake->body as $segment) {
-                if ($destination->equals($segment)) {
-                    return false;
-                }
-            }
-        }
-        return true;
+        return $state->board->contains($destination) && !$obstacles->contains($destination);
     }
 
     /**
-     * Open, and not a Cell a strictly longer Opponent could move into this Turn.
+     * True if a strictly longer Opponent could move into `$destination` this
+     * Turn — a head-to-head we would lose.
      */
-    private function isSurvivable(GameState $state, Coord $destination): bool
+    private function losesHeadToHead(GameState $state, Coord $destination): bool
     {
-        if (!$this->isOpen($state, $destination)) {
-            return false;
-        }
-
         $usLength = $state->you->length();
         foreach ($state->board->snakes as $snake) {
             if ($snake->id === $state->you->id) {
@@ -91,11 +88,10 @@ final class SurvivalFilter
             $oppHead = $snake->head();
             foreach (Move::cases() as $oppMove) {
                 if ($oppHead->translate($oppMove)->equals($destination)) {
-                    return false;
+                    return true;
                 }
             }
         }
-
-        return true;
+        return false;
     }
 }

@@ -36,8 +36,9 @@ simultaneously. The output is:
 
 Obstacles:
 
-- All Cells occupied by any Snake's `body` are solid for the duration of the
-  Flood Fill, including Tails (v1; see "Known limitations" below).
+- Every **Obstacle Cell** — a Cell occupied by a Snake body segment that is
+  not a Vacating Tail. A Vacating Tail (the Tail of a Snake that did not just
+  eat) is passable: that Snake's Tail moves off the Cell next Turn.
 - Board edges are solid.
 
 Heads are sources of the BFS, not obstacles to it.
@@ -108,10 +109,10 @@ select a Move.
 
 Classify each Move's destination Cell and produce two nested sets:
 
-- **Open Moves** — destination is in bounds AND not occupied by any Snake's
-  body (v1: including Tails). An Open Move may still be lost to a head-to-head,
-  but — unlike a wall or a body — that depends on the Opponent's choice, so it
-  is not *certain* death.
+- **Open Moves** — destination is in bounds AND not an Obstacle Cell (a Snake
+  body segment that is not a Vacating Tail). An Open Move may still be lost to
+  a head-to-head, but — unlike a wall or a body — that depends on the
+  Opponent's choice, so it is not *certain* death.
 - **Survivable Moves** — the Open Moves that are additionally not a Cell a
   strictly longer Opponent can move into this Turn (a head-to-head we would
   lose). Survivable Moves ⊆ Open Moves.
@@ -133,8 +134,8 @@ Open Moves either, every Move is certain death: emit the first of
 For each Move in the arbitrated set, measured from its destination Cell by
 single-source breadth-first search:
 
-- **Reachable Area** — the count of free Cells reachable, with all Snake
-  bodies as obstacles (v1: including Tails, consistent with Phase 1). The
+- **Reachable Area** — the count of free Cells reachable, with Obstacle Cells
+  as obstacles (Vacating Tails are passable, consistent with Phase 1). The
   destination Cell counts toward the Area.
 - **Guaranteed Area** — the same count, but additionally treating every free
   Cell adjacent to an Opponent's Head as an obstacle. Those are the Cells an
@@ -180,10 +181,6 @@ tie-breaking rules are total orders. Implementations must respect them.
 
 These are intentional simplifications to be revisited:
 
-- **Lazy Tail handling.** Tails are treated as solid in the Flood Fill
-  (Phase 1) and the Space-Safety BFS (Phase 6), even though a Snake's Tail
-  vacates next Turn unless it just ate. This under-counts space and can make
-  us avoid Cells that would be safe — a conservative error.
 - **No head-adjacency danger in Flood Fill.** Opponent Heads are sources of
   their own BFS but Cells adjacent to longer Opponent Heads are not
   pre-emptively avoided in the distance computation. Survival is enforced

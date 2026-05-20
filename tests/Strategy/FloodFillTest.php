@@ -37,7 +37,7 @@ final class FloodFillTest extends TestCase
         self::assertSame(1, $result->distance('us', new Coord(6, 5)));
     }
 
-    public function testOwnSnakeBodyIsObstacle(): void
+    public function testMidBodyBlocksFloodFillButVacatingTailDoesNot(): void
     {
         $state = (new StateBuilder())
             ->size(11, 11)
@@ -46,8 +46,10 @@ final class FloodFillTest extends TestCase
 
         $result = (new FloodFill())->run($state);
 
+        // (5,4) is a mid-body segment — a solid obstacle, never reached.
         self::assertSame(PHP_INT_MAX, $result->distance('us', new Coord(5, 4)));
-        self::assertSame(PHP_INT_MAX, $result->distance('us', new Coord(5, 3)));
+        // (5,3) is the tail — it vacates, so the BFS routes around to reach it.
+        self::assertSame(4, $result->distance('us', new Coord(5, 3)));
     }
 
     public function testOwnerIsCloserSnake(): void
@@ -131,17 +133,15 @@ final class FloodFillTest extends TestCase
 
     public function testPathIsEmptyForUnreachableTarget(): void
     {
-        // Two-cell board, snake fills both cells — anything beyond is OOB.
+        // A mid-body segment is a solid obstacle the BFS never reaches.
         $state = (new StateBuilder())
             ->size(11, 11)
-            // Boxed in: head at (0,0); body blocks the only two escape squares.
-            ->snake('us', 100, [[0, 0], [1, 0], [0, 1]])
+            ->snake('us', 100, [[5, 5], [5, 4], [5, 3]])
             ->build();
 
         $result = (new FloodFill())->run($state);
-        $path = $result->pathFrom('us', new Coord(5, 5));
 
-        self::assertSame([], $path);
+        self::assertSame([], $result->pathFrom('us', new Coord(5, 4)));
     }
 
     public function testPredecessorPrefersCenterCloserNeighborOnTie(): void

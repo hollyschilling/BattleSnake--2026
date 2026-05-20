@@ -17,6 +17,10 @@ be added here before the PR merges.
 - **Head** — The first segment of a Snake's body. Same as `body[0]`.
 - **Body** — The ordered list of Cells occupied by a Snake, from Head to Tail.
 - **Tail** — The last segment of a Snake's body (`body[length-1]`).
+- **Vacating Tail** — a Snake's Tail on a Turn when that Snake did not just
+  eat. The Tail moves off its Cell next Turn, so the Cell is safe to enter. A
+  Snake "just ate" when its last two body segments share a Cell
+  (`body[length-1] == body[length-2]`).
 - **Food** — A Cell that, when entered, restores a Snake's Health to 100 and
   grows the Snake by one segment.
 - **Health** — An integer (0–100) representing a Snake's remaining Turns to
@@ -30,6 +34,9 @@ be added here before the PR merges.
 
 ## Algorithmic concepts
 
+- **Obstacle Cell** — a Cell occupied by a Snake body segment other than a
+  Vacating Tail. Obstacle Cells block movement in the Flood Fill, the Survival
+  Filter, and the Space-Safety check.
 - **Flood Fill** — A multi-source breadth-first search from every live Snake's
   Head, computing, for each Cell, which Snake reaches it first and after how
   many Moves.
@@ -71,8 +78,8 @@ be added here before the PR merges.
 - **Trap-Safe** — a Move whose destination Cell has a Guaranteed Area at
   least equal to its Required Space — i.e., Space-Safe even against an
   adversarial one-ply Opponent move.
-- **Open Move** — a Move whose destination Cell is in bounds and free of any
-  Snake body (lazy: including Tails). It may still be lost to a head-to-head,
-  but that depends on the Opponent's choice, so it is not *certain* death.
+- **Open Move** — a Move whose destination Cell is in bounds and not an
+  Obstacle Cell. It may still be lost to a head-to-head, but that depends on
+  the Opponent's choice, so it is not *certain* death.
 - **Survivable Move** — an Open Move that is additionally not a Cell a strictly
   longer Opponent can move into this Turn. A Move with no immediate way to die.
