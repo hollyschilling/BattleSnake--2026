@@ -11,46 +11,17 @@ use App\Domain\Move;
 /**
  * Implements Phase 5 of /spec/features/move-strategy.md.
  *
- * Filters out Moves whose destination is out of bounds, occupied by any Snake's
- * body (lazy: including Tails), or contested by a strictly longer Opponent's
- * possible move. If the candidate Move fails, falls back to the surviving Move
- * with the smallest Center Distance. If no Move survives, returns `Move::Up`
- * (we are dead this Turn regardless).
+ * Produces the set of immediately-survivable Moves — those whose destination
+ * is in bounds, not occupied by any Snake's body (lazy: including Tails), and
+ * not contestable by a strictly longer Opponent's possible move. It does not
+ * select a Move; Phase 6 ({@see SpaceEvaluator}) arbitrates over the set.
  */
 final class SurvivalFilter
 {
-    public function filter(GameState $state, ?Move $candidate): Move
-    {
-        $survivable = $this->survivableMoves($state);
-
-        if ($candidate !== null && in_array($candidate, $survivable, true)) {
-            return $candidate;
-        }
-
-        if ($survivable === []) {
-            return Move::Up;
-        }
-
-        $center = $state->board->center();
-        $head = $state->you->head();
-        $best = $survivable[0];
-        $bestDist = $head->translate($best)->manhattanDistanceTo($center);
-
-        for ($i = 1, $n = count($survivable); $i < $n; $i++) {
-            $dist = $head->translate($survivable[$i])->manhattanDistanceTo($center);
-            if ($dist < $bestDist) {
-                $best = $survivable[$i];
-                $bestDist = $dist;
-            }
-        }
-
-        return $best;
-    }
-
     /**
      * @return list<Move>
      */
-    private function survivableMoves(GameState $state): array
+    public function survivableMoves(GameState $state): array
     {
         $head = $state->you->head();
         $survivable = [];

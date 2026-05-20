@@ -8,6 +8,7 @@ use App\Domain\Move;
 use App\Strategy\FloodFill;
 use App\Strategy\FloodFillMoveSelector;
 use App\Strategy\FoodClassifier;
+use App\Strategy\SpaceEvaluator;
 use App\Strategy\SurvivalFilter;
 use App\Strategy\TargetSelector;
 use PHPUnit\Framework\TestCase;
@@ -21,6 +22,7 @@ final class FloodFillMoveSelectorTest extends TestCase
             foodClassifier: new FoodClassifier(),
             targetSelector: new TargetSelector(),
             survivalFilter: new SurvivalFilter(),
+            spaceEvaluator: new SpaceEvaluator(),
         );
     }
 
@@ -31,8 +33,6 @@ final class FloodFillMoveSelectorTest extends TestCase
             ->snake('us', 100, [[1, 1]])
             ->build();
 
-        // From (1,1) toward center (5,5): first step is Up (1,2) or Right (2,1).
-        // Tie-break in flood fill picks Up first (move order).
         $move = $this->selector()->select($state);
 
         self::assertContains($move, [Move::Up, Move::Right]);
@@ -83,8 +83,7 @@ final class FloodFillMoveSelectorTest extends TestCase
 
     public function testAvoidsCollisionWithOpponentBody(): void
     {
-        // Head at (5,5). Opponent body blocks (6,5) and (4,5).
-        // Up and Down are safe.
+        // Head at (5,5). Opponent body blocks (6,5), (4,5) and (5,4); only Up is free.
         $state = (new StateBuilder())
             ->size(11, 11)
             ->snake('us', 100, [[5, 5]])
@@ -94,6 +93,38 @@ final class FloodFillMoveSelectorTest extends TestCase
 
         $move = $this->selector()->select($state);
 
-        self::assertContains($move, [Move::Up]);
+        self::assertSame(Move::Up, $move);
+    }
+
+    public function testAvoidsTrappingItselfInAPocket(): void
+    {
+        // The body seals a 2-cell pocket {(0,0),(0,1)}. Food at (0,1) makes the
+        // target-path candidate Left — straight into the trap. The space check
+        // must override it: the pocket holds 2 cells and we are length 8.
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 100, [[1, 0], [1, 1], [1, 2], [0, 2], [0, 3], [0, 4], [1, 4], [2, 4]])
+            ->food([[0, 1]])
+            ->build();
+
+        $move = $this->selector()->select($state);
+
+        self::assertSame(Move::Right, $move);
+    }
+
+    public function testPicksLargestAreaWhenEveryMoveIsUnsafe(): void
+    {
+        // 5x5 board. The length-10 body walls it into a 10-cell region (above,
+        // reached by Up) and a 5-cell region (below, reached by Down).
+        // required = 10 + 0 + 1 = 11, so both regions are too small — the
+        // selector must pick the larger one, Up.
+        $state = (new StateBuilder())
+            ->size(5, 5)
+            ->snake('us', 100, [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [4, 1], [4, 0], [3, 0], [3, 1], [2, 1]])
+            ->build();
+
+        $move = $this->selector()->select($state);
+
+        self::assertSame(Move::Up, $move);
     }
 }

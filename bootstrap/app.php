@@ -16,6 +16,7 @@ use App\Http\SnakeInfo;
 use App\Strategy\FloodFill;
 use App\Strategy\FloodFillMoveSelector;
 use App\Strategy\FoodClassifier;
+use App\Strategy\SpaceEvaluator;
 use App\Strategy\SurvivalFilter;
 use App\Strategy\TargetSelector;
 use Psr\Http\Message\ResponseInterface;
@@ -36,6 +37,7 @@ $selector = new FloodFillMoveSelector(
     foodClassifier: new FoodClassifier(),
     targetSelector: new TargetSelector(),
     survivalFilter: new SurvivalFilter(),
+    spaceEvaluator: new SpaceEvaluator(),
 );
 
 $app = AppFactory::create();

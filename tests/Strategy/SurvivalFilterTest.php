@@ -10,43 +10,37 @@ use PHPUnit\Framework\TestCase;
 
 final class SurvivalFilterTest extends TestCase
 {
-    public function testPassesValidCandidate(): void
+    public function testOpenBoardYieldsAllFourMoves(): void
     {
         $state = (new StateBuilder())
             ->size(11, 11)
             ->snake('us', 100, [[5, 5]])
             ->build();
 
-        self::assertSame(Move::Right, (new SurvivalFilter())->filter($state, Move::Right));
+        self::assertCount(4, (new SurvivalFilter())->survivableMoves($state));
     }
 
-    public function testRejectsOutOfBoundsCandidate(): void
+    public function testExcludesOutOfBoundsMove(): void
     {
-        // Head at (0, 5). Moving Left goes off-board.
         $state = (new StateBuilder())
             ->size(11, 11)
             ->snake('us', 100, [[0, 5]])
             ->build();
 
-        $move = (new SurvivalFilter())->filter($state, Move::Left);
-
-        self::assertNotSame(Move::Left, $move);
+        self::assertNotContains(Move::Left, (new SurvivalFilter())->survivableMoves($state));
     }
 
-    public function testRejectsMoveIntoOwnBody(): void
+    public function testExcludesMoveIntoOwnBody(): void
     {
-        // Head at (5,5); body extends down to (5,4). Moving Down dies.
         $state = (new StateBuilder())
             ->size(11, 11)
             ->snake('us', 100, [[5, 5], [5, 4], [5, 3]])
             ->build();
 
-        $move = (new SurvivalFilter())->filter($state, Move::Down);
-
-        self::assertNotSame(Move::Down, $move);
+        self::assertNotContains(Move::Down, (new SurvivalFilter())->survivableMoves($state));
     }
 
-    public function testRejectsMoveIntoOtherSnakeBody(): void
+    public function testExcludesMoveIntoOtherSnakeBody(): void
     {
         $state = (new StateBuilder())
             ->size(11, 11)
@@ -55,16 +49,12 @@ final class SurvivalFilterTest extends TestCase
             ->you('us')
             ->build();
 
-        // Right moves to (6,5), which is opp's body.
-        $move = (new SurvivalFilter())->filter($state, Move::Right);
-
-        self::assertNotSame(Move::Right, $move);
+        self::assertNotContains(Move::Right, (new SurvivalFilter())->survivableMoves($state));
     }
 
-    public function testRejectsHeadToHeadAgainstStrictlyLongerOpponent(): void
+    public function testExcludesHeadToHeadAgainstStrictlyLongerOpponent(): void
     {
-        // us at (5,5) length 1; opp at (5,7) length 2. Both can move into (5,6).
-        // opp is strictly longer ⇒ we must not move there.
+        // us at (5,5) length 1; opp at (5,7) length 2 — both can enter (5,6).
         $state = (new StateBuilder())
             ->size(11, 11)
             ->snake('us', 100, [[5, 5]])
@@ -72,9 +62,7 @@ final class SurvivalFilterTest extends TestCase
             ->you('us')
             ->build();
 
-        $move = (new SurvivalFilter())->filter($state, Move::Up);
-
-        self::assertNotSame(Move::Up, $move);
+        self::assertNotContains(Move::Up, (new SurvivalFilter())->survivableMoves($state));
     }
 
     public function testAllowsHeadToHeadAgainstEqualLengthOpponent(): void
@@ -87,36 +75,17 @@ final class SurvivalFilterTest extends TestCase
             ->you('us')
             ->build();
 
-        $move = (new SurvivalFilter())->filter($state, Move::Up);
-
-        self::assertSame(Move::Up, $move);
+        self::assertContains(Move::Up, (new SurvivalFilter())->survivableMoves($state));
     }
 
-    public function testFallsBackToCenterClosestWhenCandidateDies(): void
+    public function testReturnsEmptyWhenAllMovesAreFatal(): void
     {
-        // Head at (0,5). Moving Left dies (OOB). Other moves: Up (0,6), Down (0,4), Right (1,5).
-        // Center is (5,5). Distances after move: Up=6, Down=6, Right=4. Right wins.
-        $state = (new StateBuilder())
-            ->size(11, 11)
-            ->snake('us', 100, [[0, 5]])
-            ->build();
-
-        $move = (new SurvivalFilter())->filter($state, Move::Left);
-
-        self::assertSame(Move::Right, $move);
-    }
-
-    public function testReturnsUpWhenAllMovesAreFatal(): void
-    {
-        // Walled into a 1x1 region: head at (0,0), body wraps around.
+        // Head at (0,0), body blocks (1,0) and (0,1); other two moves are OOB.
         $state = (new StateBuilder())
             ->size(11, 11)
             ->snake('us', 100, [[0, 0], [1, 0], [0, 1]])
             ->build();
 
-        // Up→(0,1) own body, Right→(1,0) own body, Down→(0,-1) OOB, Left→(-1,0) OOB.
-        $move = (new SurvivalFilter())->filter($state, null);
-
-        self::assertSame(Move::Up, $move);
+        self::assertSame([], (new SurvivalFilter())->survivableMoves($state));
     }
 }

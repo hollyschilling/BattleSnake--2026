@@ -53,3 +53,12 @@ be added here before the PR merges.
 - **Center** — The Cell `(floor(width/2), floor(height/2))`. Used as a
   tie-breaker and as the fallback target when no food applies.
 - **Center Distance** — Manhattan distance from a Cell to the Center.
+- **Reachable Area** — for a given Cell, the count of free Cells reachable
+  from it by a single-source breadth-first search with all Snake bodies as
+  obstacles. The Cell itself counts toward its own Reachable Area.
+- **Food In Area** — the number of Food Cells within a Reachable Area.
+- **Required Space** — `our length + Food In Area + 1`. The minimum Reachable
+  Area a Move's destination must have for the Move to be Space-Safe.
+- **Space-Safe** — a Move whose destination Cell has a Reachable Area at
+  least equal to its Required Space — i.e., a region large enough to hold
+  the Snake even after eating all Food in it (plus a one-segment buffer).

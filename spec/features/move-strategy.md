@@ -17,7 +17,7 @@ A `Move`.
 
 ## Algorithm
 
-Four phases, run in order. Each consumes the output of the previous.
+Six phases, run in order. Each consumes the output of the previous.
 
 ### Phase 1 — Flood Fill
 
@@ -87,23 +87,52 @@ Head) yields our Move via its delta from `us.head`.
 
 If the target Cell is `us.head` itself (possible when targeting the Center
 and we're already there), or the predecessor map yields no path (target
-unreachable), apply Phase 5 directly with no candidate Move.
+unreachable), the candidate Move is undefined; Phases 5–6 still run and
+select a Move.
 
 ### Phase 5 — Survival Filter
 
-Before emitting the Move, verify the candidate Move's destination Cell:
+Compute the set of **immediately-survivable Moves** — every Move whose
+destination Cell:
 
 - is in bounds, AND
 - is not occupied by any Snake's body (v1: including Tails), AND
 - is not a Cell that a strictly longer Opponent can also move into this
   Turn (head-to-head we would lose).
 
-If the candidate Move fails the filter, fall back to any other Move whose
-destination passes. Among multiple passing fallbacks, pick the one whose
-destination Cell has the smallest Center Distance.
+This phase no longer selects a Move; it produces the candidate set that
+Phase 6 arbitrates over. If the set is empty, we are dead this Turn
+regardless — emit `up` (the engine requires a valid response).
 
-If no Move passes the filter, we are dead on this Turn regardless. Emit
-`up` (the engine requires a valid response).
+### Phase 6 — Space-Safety Arbitration
+
+A Move can be immediately-survivable yet still fatal a few Turns later if it
+enters a region too small to hold the Snake. This phase rejects such Moves.
+
+For each immediately-survivable Move, measured from its destination Cell:
+
+- **Reachable Area** — the count of free Cells reachable by a single-source
+  breadth-first search, with all Snake bodies as obstacles (v1: including
+  Tails, consistent with Phase 1). The destination Cell counts toward the
+  Area.
+- **Food In Area** — the number of Food Cells within the Reachable Area.
+- **Required Space** = `you.length + Food In Area + 1`. Eating each Food in
+  the region grows us by one segment; the `+1` is a buffer against a Food
+  spawning in the region while we are inside it.
+- The Move is **Space-Safe** iff `Reachable Area ≥ Required Space`.
+
+Select the final Move:
+
+1. If the Phase 4 candidate Move is immediately-survivable and Space-Safe,
+   emit it.
+2. Otherwise, emit the Move with the largest Reachable Area — chosen from the
+   Space-Safe survivable Moves if any exist, or from all survivable Moves if
+   none are Space-Safe. Tie-break by the smallest Center Distance of the
+   destination Cell.
+
+Step 2 deliberately abandons the Phase 3 target for one Turn when the target
+path would trap us. Because the algorithm re-runs from scratch every Turn,
+the target is re-pursued from the safer position on the next Turn.
 
 ## Determinism
 
@@ -114,15 +143,16 @@ tie-breaking rules are total orders. Implementations must respect them.
 
 These are intentional simplifications to be revisited:
 
-- **Lazy Tail handling.** Tails are treated as solid in the Flood Fill,
-  even though a Snake's Tail vacates next Turn unless it just ate. This can
-  cause us to avoid Cells that would be safe.
+- **Lazy Tail handling.** Tails are treated as solid in the Flood Fill
+  (Phase 1) and the Space-Safety BFS (Phase 6), even though a Snake's Tail
+  vacates next Turn unless it just ate. This under-counts space and can make
+  us avoid Cells that would be safe — a conservative error.
 - **No head-adjacency danger in Flood Fill.** Opponent Heads are sources of
   their own BFS but Cells adjacent to longer Opponent Heads are not
   pre-emptively avoided in the distance computation. Survival is enforced
   only in Phase 5.
 - **Hard health threshold.** `health ≤ 20` is a binary cliff. A gradient
   blend between modes would play better.
-- **One-ply.** No multi-turn lookahead.
+- **One-ply.** No multi-turn lookahead beyond the Space-Safety check.
 
 Each of these is a candidate for a future ADR if play quality demands it.
