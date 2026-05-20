@@ -114,8 +114,9 @@ Classify each Move's destination Cell and produce two nested sets:
   a head-to-head, but — unlike a wall or a body — that depends on the
   Opponent's choice, so it is not *certain* death.
 - **Survivable Moves** — the Open Moves that are additionally not a Cell a
-  strictly longer Opponent can move into this Turn (a head-to-head we would
-  lose). Survivable Moves ⊆ Open Moves.
+  longer or equal-length Opponent can move into this Turn (a head-to-head that
+  kills us — we lose to a longer Opponent, and both snakes die against an
+  equal-length one). Survivable Moves ⊆ Open Moves.
 
 This phase selects no Move; Phase 6 arbitrates.
 

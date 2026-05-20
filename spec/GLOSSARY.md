@@ -81,5 +81,6 @@ be added here before the PR merges.
 - **Open Move** — a Move whose destination Cell is in bounds and not an
   Obstacle Cell. It may still be lost to a head-to-head, but that depends on
   the Opponent's choice, so it is not *certain* death.
-- **Survivable Move** — an Open Move that is additionally not a Cell a strictly
-  longer Opponent can move into this Turn. A Move with no immediate way to die.
+- **Survivable Move** — an Open Move that is additionally not a Cell a longer
+  or equal-length Opponent can move into this Turn. A Move with no immediate
+  way to die.

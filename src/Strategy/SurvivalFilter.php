@@ -72,8 +72,9 @@ final class SurvivalFilter
     }
 
     /**
-     * True if a strictly longer Opponent could move into `$destination` this
-     * Turn — a head-to-head we would lose.
+     * True if a longer or equal-length Opponent could move into `$destination`
+     * this Turn — a head-to-head that kills us (we lose to a longer Opponent,
+     * both die against an equal-length one). See ADR 009.
      */
     private function losesHeadToHead(GameState $state, Coord $destination): bool
     {
@@ -82,8 +83,8 @@ final class SurvivalFilter
             if ($snake->id === $state->you->id) {
                 continue;
             }
-            if ($snake->length() <= $usLength) {
-                continue; // not strictly longer; per spec, ignore for survival filter
+            if ($snake->length() < $usLength) {
+                continue; // strictly shorter — we win this head-to-head
             }
             $oppHead = $snake->head();
             foreach (Move::cases() as $oppMove) {

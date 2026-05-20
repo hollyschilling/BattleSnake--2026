@@ -65,9 +65,11 @@ final class SurvivalFilterTest extends TestCase
         self::assertNotContains(Move::Up, (new SurvivalFilter())->survivableMoves($state));
     }
 
-    public function testAllowsHeadToHeadAgainstEqualLengthOpponent(): void
+    public function testRejectsHeadToHeadAgainstEqualLengthOpponent(): void
     {
-        // Per spec, only *strictly longer* opponent collisions are filtered.
+        // An equal-length head-to-head kills both snakes (ADR 009), so it is
+        // filtered from the survivable set — but it stays an Open Move, a
+        // gamble the open-move fallback may still take when nothing is safer.
         $state = (new StateBuilder())
             ->size(11, 11)
             ->snake('us', 100, [[5, 5]])
@@ -75,7 +77,10 @@ final class SurvivalFilterTest extends TestCase
             ->you('us')
             ->build();
 
-        self::assertContains(Move::Up, (new SurvivalFilter())->survivableMoves($state));
+        $filter = new SurvivalFilter();
+
+        self::assertNotContains(Move::Up, $filter->survivableMoves($state));
+        self::assertContains(Move::Up, $filter->openMoves($state));
     }
 
     public function testReturnsEmptyWhenAllMovesAreFatal(): void
