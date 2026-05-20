@@ -88,4 +88,39 @@ final class SurvivalFilterTest extends TestCase
 
         self::assertSame([], (new SurvivalFilter())->survivableMoves($state));
     }
+
+    public function testOpenMovesIncludeHeadToHeadRiskRejectedFromSurvivable(): void
+    {
+        // us length 2 at (0,0); body blocks Up. Down/Left are OOB. Right (1,0)
+        // is in bounds and free, but a strictly longer opponent at (2,0) can
+        // also move there — a head-to-head risk.
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 100, [[0, 0], [0, 1]])
+            ->snake('opp', 100, [[2, 0], [2, 1], [2, 2]])
+            ->you('us')
+            ->build();
+
+        $filter = new SurvivalFilter();
+
+        // Right is rejected from survivable (H2H) but kept as an Open Move.
+        self::assertSame([], $filter->survivableMoves($state));
+        self::assertSame([Move::Right], $filter->openMoves($state));
+    }
+
+    public function testOpenMovesExcludeOutOfBoundsAndBody(): void
+    {
+        // Head at (0,5): Up (0,6) is our own body, Left is OOB.
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 100, [[0, 5], [0, 6]])
+            ->build();
+
+        $open = (new SurvivalFilter())->openMoves($state);
+
+        self::assertContains(Move::Down, $open);
+        self::assertContains(Move::Right, $open);
+        self::assertNotContains(Move::Up, $open);
+        self::assertNotContains(Move::Left, $open);
+    }
 }

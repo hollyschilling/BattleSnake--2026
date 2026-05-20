@@ -106,17 +106,17 @@ select a Move.
 
 ### Phase 5 — Survival Filter
 
-Compute the set of **immediately-survivable Moves** — every Move whose
-destination Cell:
+Classify each Move's destination Cell and produce two nested sets:
 
-- is in bounds, AND
-- is not occupied by any Snake's body (v1: including Tails), AND
-- is not a Cell that a strictly longer Opponent can also move into this
-  Turn (head-to-head we would lose).
+- **Open Moves** — destination is in bounds AND not occupied by any Snake's
+  body (v1: including Tails). An Open Move may still be lost to a head-to-head,
+  but — unlike a wall or a body — that depends on the Opponent's choice, so it
+  is not *certain* death.
+- **Survivable Moves** — the Open Moves that are additionally not a Cell a
+  strictly longer Opponent can move into this Turn (a head-to-head we would
+  lose). Survivable Moves ⊆ Open Moves.
 
-This phase no longer selects a Move; it produces the candidate set that
-Phase 6 arbitrates over. If the set is empty, we are dead this Turn
-regardless — emit `up` (the engine requires a valid response).
+This phase selects no Move; Phase 6 arbitrates.
 
 ### Phase 6 — Space-Safety Arbitration
 
@@ -124,7 +124,13 @@ A Move can be immediately-survivable yet still fatal a few Turns later if it
 enters a region too small to hold the Snake — either too small on its own, or
 small enough that an Opponent can seal it shut.
 
-For each immediately-survivable Move, measured from its destination Cell by
+Phase 6 arbitrates over the **Survivable Moves** from Phase 5. If there are
+none, it arbitrates over the **Open Moves** instead — accepting a possible
+head-to-head rather than walking into a certain wall or body. If there are no
+Open Moves either, every Move is certain death: emit the first of
+`up, down, left, right` whose destination is in bounds, or `up` if none is.
+
+For each Move in the arbitrated set, measured from its destination Cell by
 single-source breadth-first search:
 
 - **Reachable Area** — the count of free Cells reachable, with all Snake
@@ -142,7 +148,7 @@ single-source breadth-first search:
 - The Move is **Trap-Safe** iff `Guaranteed Area ≥ Required Space`. Trap-Safe
   implies Space-Safe, since Guaranteed Area ≤ Reachable Area.
 
-Each immediately-survivable Move falls into one of three tiers:
+Each Move in the arbitrated set falls into one of three tiers:
 
 1. **Trap-Safe** — survivable even if an Opponent moves to trap us.
 2. **Space-Safe only** — survivable unless an Opponent moves to trap us.
@@ -150,7 +156,7 @@ Each immediately-survivable Move falls into one of three tiers:
 
 Select the final Move:
 
-1. If the Phase 4 candidate Move is immediately-survivable and Trap-Safe,
+1. If the Phase 4 candidate Move is in the arbitrated set and Trap-Safe,
    emit it.
 2. Otherwise, take the highest non-empty tier and emit its Move with the
    largest Guaranteed Area. Tie-break by largest Reachable Area, then by the

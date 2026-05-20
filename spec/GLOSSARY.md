@@ -71,3 +71,8 @@ be added here before the PR merges.
 - **Trap-Safe** — a Move whose destination Cell has a Guaranteed Area at
   least equal to its Required Space — i.e., Space-Safe even against an
   adversarial one-ply Opponent move.
+- **Open Move** — a Move whose destination Cell is in bounds and free of any
+  Snake body (lazy: including Tails). It may still be lost to a head-to-head,
+  but that depends on the Opponent's choice, so it is not *certain* death.
+- **Survivable Move** — an Open Move that is additionally not a Cell a strictly
+  longer Opponent can move into this Turn. A Move with no immediate way to die.

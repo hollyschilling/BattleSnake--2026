@@ -38,34 +38,59 @@ final class FloodFillMoveSelector implements MoveSelector
         $candidate = $this->extractFirstMove($state, $result, $target);
 
         $survivable = $this->survivalFilter->survivableMoves($state);
-        if ($survivable === []) {
-            return Move::Up; // dead this Turn regardless; engine still needs a Move
+        if ($survivable !== []) {
+            return $this->arbitrateBySpace($state, $survivable, $candidate);
         }
 
-        return $this->arbitrateBySpace($state, $survivable, $candidate);
+        // No fully-safe Move. Accept a possible head-to-head over a certain
+        // wall or body: arbitrate the Open Moves (in bounds, not a body).
+        $open = $this->survivalFilter->openMoves($state);
+        if ($open !== []) {
+            return $this->arbitrateBySpace($state, $open, $candidate);
+        }
+
+        // Every Move is certain death — emit a deterministic in-bounds Move.
+        return $this->lastResort($state);
     }
 
     /**
-     * Phase 6 — pick the final Move using {@see SpaceEvaluator}.
-     *
-     * Tiers the survivable Moves by Trap-Safe > Space-Safe-only > neither,
-     * and picks the largest-Guaranteed-Area Move from the highest tier.
-     *
-     * @param list<Move> $survivable
+     * All Moves are out of bounds or into a body. Emit the first in-bounds
+     * Move so we at least do not gratuitously leave the board.
      */
-    private function arbitrateBySpace(GameState $state, array $survivable, ?Move $candidate): Move
+    private function lastResort(GameState $state): Move
+    {
+        $head = $state->you->head();
+        foreach (Move::cases() as $move) {
+            if ($state->board->contains($head->translate($move))) {
+                return $move;
+            }
+        }
+        return Move::Up;
+    }
+
+    /**
+     * Phase 6 — pick the final Move from a set of candidate Moves using
+     * {@see SpaceEvaluator}.
+     *
+     * Tiers the Moves by Trap-Safe > Space-Safe-only > neither, and picks the
+     * largest-Guaranteed-Area Move from the highest tier. The set is the
+     * Survivable Moves, or — when there are none — the Open Moves.
+     *
+     * @param non-empty-list<Move> $moves
+     */
+    private function arbitrateBySpace(GameState $state, array $moves, ?Move $candidate): Move
     {
         $head = $state->you->head();
         $center = $state->board->center();
 
         $assessment = [];
-        foreach ($survivable as $move) {
+        foreach ($moves as $move) {
             $assessment[$move->value] = $this->spaceEvaluator->assess($state, $head->translate($move));
         }
 
-        // 1. Take the target-path candidate if it is survivable and Trap-Safe.
+        // 1. Take the target-path candidate if it is in the set and Trap-Safe.
         if ($candidate !== null
-            && in_array($candidate, $survivable, true)
+            && in_array($candidate, $moves, true)
             && $assessment[$candidate->value]->isTrapSafe
         ) {
             return $candidate;
@@ -73,18 +98,18 @@ final class FloodFillMoveSelector implements MoveSelector
 
         // 2. Otherwise pick from the highest non-empty tier.
         $trapSafe = array_values(array_filter(
-            $survivable,
+            $moves,
             static fn (Move $m): bool => $assessment[$m->value]->isTrapSafe,
         ));
         $spaceSafeOnly = array_values(array_filter(
-            $survivable,
+            $moves,
             static fn (Move $m): bool => $assessment[$m->value]->isSpaceSafe
                 && !$assessment[$m->value]->isTrapSafe,
         ));
         $pool = match (true) {
             $trapSafe !== []      => $trapSafe,
             $spaceSafeOnly !== [] => $spaceSafeOnly,
-            default               => $survivable,
+            default               => $moves,
         };
 
         // Largest Guaranteed Area, then largest Reachable Area, then nearest Center.

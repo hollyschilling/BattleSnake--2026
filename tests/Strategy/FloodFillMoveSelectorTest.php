@@ -146,6 +146,35 @@ final class FloodFillMoveSelectorTest extends TestCase
         self::assertSame(Move::Right, $this->selector()->select($state));
     }
 
+    public function testFallsBackToOpenMoveWhenNoSurvivableMove(): void
+    {
+        // us length 2 at (0,0): Up is our own body, Down/Left are OOB. Right
+        // (1,0) is rejected from the survivable set only because a strictly
+        // longer opponent could contest it. With no survivable Move, we must
+        // take the open Right — a possible head-to-head beats the certain
+        // self-collision a hardcoded `up` would have caused.
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 100, [[0, 0], [0, 1]])
+            ->snake('opp', 100, [[2, 0], [2, 1], [2, 2]])
+            ->you('us')
+            ->build();
+
+        self::assertSame(Move::Right, $this->selector()->select($state));
+    }
+
+    public function testEmitsInBoundsMoveWhenEveryMoveIsCertainDeath(): void
+    {
+        // Boxed in: every Move is out of bounds or into a body. The last-resort
+        // emits the first in-bounds Move rather than blindly leaving the board.
+        $state = (new StateBuilder())
+            ->size(11, 11)
+            ->snake('us', 100, [[0, 0], [1, 0], [0, 1]])
+            ->build();
+
+        self::assertSame(Move::Up, $this->selector()->select($state));
+    }
+
     public function testPicksLargestAreaWhenEveryMoveIsUnsafe(): void
     {
         // 5x5 board. The length-10 body walls it into a 10-cell region (above,
